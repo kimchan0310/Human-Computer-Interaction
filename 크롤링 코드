@@ -1,0 +1,156 @@
+"""
+네이버 블로그 크롤러
+출력 형식: {"blog_id", "title", "published_at", "url", "body": [줄 단위 리스트, 빈 줄은 ""]}
+파일명: {logNo}.json
+
+사용법:
+    python crawling.py urls.txt -o .
+    (urls.txt: 한 줄에 블로그 글 URL 하나)
+"""
+
+import argparse
+import json
+import re
+import time
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+
+import requests
+from bs4 import BeautifulSoup
+
+KST = timezone(timedelta(hours=9))
+HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+        "(KHTML, like Gecko) Chrome/124.0 Safari/537.36"
+    ),
+    "Referer": "https://blog.naver.com/",
+}
+INVISIBLE = re.compile(r"[‌‍﻿]")
+
+
+def parse_url(url: str):
+    """블로그 URL에서 blogId, logNo 추출"""
+    m = re.search(r"blogId=([\w-]+).*?logNo=(\d+)", url) or re.search(
+        r"logNo=(\d+).*?blogId=([\w-]+)", url
+    )
+    if m and "blogId=" in m.group(0)[:8]:
+        return m.group(1), m.group(2)
+    if m:
+        return m.group(2), m.group(1)
+    m = re.search(r"blog\.naver\.com/([\w-]+)/(\d+)", url)
+    if m:
+        return m.group(1), m.group(2)
+    raise ValueError(f"blogId/logNo를 찾을 수 없음: {url}")
+
+
+def clean(text: str) -> str:
+    text = INVISIBLE.sub("", text).replace("\xa0", " ")
+    return text.strip()
+
+
+def parse_date(raw: str, now: datetime) -> str:
+    """'2026. 11. 3. 7:50', 'n시간 전', 'n분 전', '어제' 등 → ISO 8601 (+09:00)"""
+    raw = clean(raw)
+    m = re.search(r"(\d{4})\.\s*(\d{1,2})\.\s*(\d{1,2})\.\s*(\d{1,2}):(\d{2})", raw)
+    if m:
+        y, mo, d, h, mi = map(int, m.groups())
+        return datetime(y, mo, d, h, mi, tzinfo=KST).isoformat()
+    m = re.search(r"(\d+)\s*분\s*전", raw)
+    if m:
+        dt = now - timedelta(minutes=int(m.group(1)))
+        return dt.replace(second=0, microsecond=0).isoformat()
+    m = re.search(r"(\d+)\s*시간\s*전", raw)
+    if m:
+        dt = now - timedelta(hours=int(m.group(1)))
+        return dt.replace(second=0, microsecond=0).isoformat()
+    if "방금" in raw:
+        return now.replace(second=0, microsecond=0).isoformat()
+    if "어제" in raw:
+        dt = now - timedelta(days=1)
+        return dt.replace(hour=0, minute=0, second=0, microsecond=0).isoformat()
+    return raw  # 알 수 없는 형식은 원문 그대로 저장
+
+
+def parse_post(html: str, url: str, blog_id: str) -> dict:
+    soup = BeautifulSoup(html, "html.parser")
+    now = datetime.now(KST)
+
+    # 제목 (스마트에디터 ONE → 구버전 순)
+    title_el = (
+        soup.select_one(".se-title-text")
+        or soup.select_one(".pcol1 .htitle")
+        or soup.select_one(".se_title .se_textarea")
+    )
+    title = clean(title_el.get_text(" ")) if title_el else ""
+
+    # 발행일
+    date_el = soup.select_one(".se_publishDate") or soup.select_one(".date")
+    published_at = parse_date(date_el.get_text(), now) if date_el else ""
+
+    # 본문: 문단 단위, 빈 문단은 ""
+    body = [title, ""] if title else []
+    container = soup.select_one(".se-main-container")
+    if container:
+        for p in container.select(".se-text-paragraph"):
+            body.append(clean(p.get_text()))
+    else:  # 구버전 에디터
+        old = soup.select_one("#postViewArea") or soup.select_one(".se_component_wrap")
+        if old:
+            for line in old.get_text("\n").split("\n"):
+                body.append(clean(line))
+
+    # 끝에 붙은 빈 줄 제거
+    while body and body[-1] == "":
+        body.pop()
+
+    return {"blog_id": blog_id, "title": title, "published_at": published_at, "url": url, "body": body}
+
+
+def crawl(url: str, session: requests.Session) -> tuple[str, dict]:
+    blog_id, log_no = parse_url(url)
+    view_url = f"https://blog.naver.com/PostView.naver?blogId={blog_id}&logNo={log_no}"
+    res = session.get(view_url, headers=HEADERS, timeout=15)
+    res.raise_for_status()
+    canonical = f"https://blog.naver.com/{blog_id}/{log_no}"
+    return log_no, parse_post(res.text, canonical, blog_id)
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("url_file", help="URL 목록 파일 (한 줄에 하나)")
+    ap.add_argument("-o", "--out", default="output", help="저장 폴더")
+    ap.add_argument("--delay", type=float, default=1.5, help="요청 간격(초)")
+    ap.add_argument("--skip-existing", action="store_true", help="이미 저장된 글 건너뛰기")
+    args = ap.parse_args()
+
+    out = Path(args.out)
+    out.mkdir(parents=True, exist_ok=True)
+    urls = [u.strip() for u in Path(args.url_file).read_text(encoding="utf-8").splitlines() if u.strip()]
+
+    session = requests.Session()
+    ok, fail = 0, []
+    for i, url in enumerate(urls, 1):
+        try:
+            _, log_no = parse_url(url)
+            path = out / f"{log_no}.json"
+            if args.skip_existing and path.exists():
+                print(f"[{i}/{len(urls)}] 건너뜀 {log_no}")
+                continue
+            log_no, data = crawl(url, session)
+            path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+            ok += 1
+            print(f"[{i}/{len(urls)}] 저장 {data['blog_id']}/{log_no} - {data['title'][:30]}")
+        except Exception as e:
+            fail.append(url)
+            print(f"[{i}/{len(urls)}] 실패 {url}: {e}")
+        time.sleep(args.delay)
+
+    print(f"\n완료: 성공 {ok}, 실패 {len(fail)}")
+    if fail:
+        (out / "_failed.txt").write_text("\n".join(fail), encoding="utf-8")
+        print(f"실패 목록: {out / '_failed.txt'}")
+
+
+if __name__ == "__main__":
+    main(
