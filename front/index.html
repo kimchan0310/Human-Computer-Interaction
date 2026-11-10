@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>moa — AI Writing Assistant</title>
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+  <section id="auth-screen" class="auth-screen" aria-label="로그인 및 회원가입">
+    <div class="auth-art"><div class="auth-brand">✳ moa<span>.</span></div><div class="auth-art-copy"><span class="overline">YOUR WRITING COMPANION</span><h1>당신의 이야기가<br>당신다운 글이 되도록.</h1><p>떠오른 경험을 기록하고, 대화를 통해<br>한 문장씩 나만의 글을 완성해 보세요.</p></div><div class="auth-art-footer">WRITE IN YOUR OWN VOICE</div></div>
+    <div class="auth-content"><div class="auth-card"><span class="auth-kicker">WELCOME TO MOA</span><h2 id="auth-title">다시 만나서 반가워요.</h2><p id="auth-description">이메일로 로그인하고 글쓰기를 이어가세요.</p>
+      <form id="auth-form" class="auth-form"><label for="auth-email">이메일</label><input id="auth-email" type="email" autocomplete="email" required placeholder="example@email.com"><label for="auth-password">비밀번호</label><input id="auth-password" type="password" autocomplete="current-password" minlength="8" required placeholder="8자 이상 입력해주세요"><div id="signup-fields" hidden><label for="blog-name">내 블로그 이름 <span class="required">필수</span></label><input id="blog-name" type="text" placeholder="블로그 이름" maxlength="80"><label for="blog-url">블로그 메인화면 링크 <span class="required">필수</span></label><input id="blog-url" type="url" placeholder="https://blog.naver.com/아이디"><p class="field-hint">블로그 메인화면 주소를 입력해주세요.</p></div><p id="auth-error" class="auth-error" role="alert" hidden></p><button id="auth-submit" type="submit">로그인하기 <span>↗</span></button></form>
+      <button id="demo-login" class="demo-login" type="button">데모 계정으로 바로 시작하기</button><p class="auth-switch"><span id="auth-switch-copy">아직 계정이 없으신가요?</span> <button id="auth-toggle" type="button">회원가입</button></p><p class="auth-demo-note">현재는 로컬 데모 계정입니다. 실제 인증·서버 저장은 연결되지 않았습니다.</p>
+    </div></div>
+  </section>
+  <div class="app-shell" id="app-shell" hidden>
+    <header class="topbar">
+      <div class="brand"><span class="brand-mark">✳</span><span>moa<span class="brand-dot">.</span></span><span class="brand-divider"></span><span class="brand-caption">AI WRITING ASSISTANT</span></div>
+      <div class="top-actions"><span class="save-state"><span class="status-dot"></span> 이 브라우저에 저장됨</span><button id="memo-open" class="outline-button" type="button">✎ 주제 메모</button><button id="drafts-open" class="outline-button" type="button">임시저장본</button><button id="reset" class="outline-button primary-outline" type="button">＋ 새 글쓰기</button><button id="logout" class="text-button" type="button">로그아웃</button></div>
+    </header>
+    <main class="workspace" id="workspace">
+      <section class="editor-panel" aria-label="글 편집기">
+        <div class="panel-heading"><div><span class="overline">YOUR DRAFT</span><h1>나의 글</h1></div><span class="panel-meta" id="word-count">0자</span></div>
+        <div class="editor-scroll">
+          <div class="paper">
+            <div class="paper-kicker"><span class="kicker-line"></span> DRAFT 01 <span class="paper-date">나만의 이야기</span></div>
+            <label class="sr-only" for="article-title">글 제목</label>
+            <input id="article-title" class="article-title" aria-label="글 제목" value="비 오는 날, 오래 머물고 싶은 카페" placeholder="제목을 입력하세요">
+            <div class="title-rule"></div>
+            <label class="sr-only" for="article-body">글 본문</label>
+            <textarea id="article-body" class="article-body" aria-label="글 본문" spellcheck="false" placeholder="여기에 글을 써보세요.">주말 오후, 비를 피해 동네 카페에 들어갔다. 창가 자리에서 바라본 골목은 평소보다 조용했다.
+
+따뜻한 라떼를 주문하고 자리에 앉으니 커피 향과 빗소리가 자연스럽게 어우러졌다. 잠깐 들를 생각이었는데 어느새 한 시간 넘게 머물렀다.
+
+바쁜 하루 사이에 잠시 쉬어갈 곳이 필요하다면, 이 카페에 다시 들르고 싶다.</textarea>
+          </div>
+          <p class="editor-help">글을 직접 고치거나, 오른쪽 대화에서 제안을 반영해 보세요.</p>
+        </div>
+        <div class="editor-footer"><span><span class="footer-dot"></span> 편집 중</span><span>직접 수정 가능</span></div>
+      </section>
+      <div class="splitter" id="splitter" role="separator" aria-orientation="vertical" aria-label="창 크기 조절" tabindex="0" aria-valuemin="30" aria-valuemax="70" aria-valuenow="50"><span class="splitter-grip"></span></div>
+      <section class="chat-panel" aria-label="AI 글쓰기 도우미">
+        <div class="panel-heading chat-heading"><div><span class="overline">WRITING COMPANION</span><h2>글쓰기 도우미 <span class="online-dot"></span></h2></div><span class="mock-badge">예시 대화</span></div>
+        <div id="chat-scroll" class="chat-scroll"><div id="messages" class="messages" role="log" aria-live="polite"></div></div>
+        <div class="chat-composer"><div class="quick-actions"><button type="button" data-prompt="도입부를 더 자연스럽게 다듬어줘">도입부 다듬기 <span>↗</span></button><button type="button" data-prompt="마무리를 더 인상적으로 바꿔줘">마무리 다듬기 <span>↗</span></button></div><form id="chat-form"><label class="sr-only" for="chat-input">글쓰기 도우미에게 메시지 보내기</label><textarea id="chat-input" rows="2" placeholder="글에서 다듬고 싶은 부분을 알려주세요..."></textarea><button id="send" type="submit" aria-label="메시지 보내기">↑</button></form><p class="composer-note">경험을 구체적으로 들려주실수록 글에 더 잘 반영할 수 있어요. · 예시 응답</p></div>
+      </section>
+    </main>
+  </div>
+  <div id="overlay" class="overlay" hidden></div>
+  <aside id="memo-drawer" class="memo-drawer" aria-label="글 주제 메모" hidden><div class="drawer-header"><div><span class="overline">IDEA NOTES</span><h2>떠오른 글감</h2></div><button id="memo-close" class="icon-button" type="button" aria-label="메모 닫기">×</button></div><p class="drawer-intro">나중에 쓰고 싶은 주제를 잠깐 적어두세요.</p><form id="memo-form"><label class="sr-only" for="memo-input">새 글감</label><textarea id="memo-input" rows="3" maxlength="300" placeholder="예: 주말에 다녀온 전시 이야기"></textarea><button type="submit">메모 추가</button></form><div id="memo-list" class="memo-list"></div></aside>
+  <div id="draft-dialog" class="dialog" role="dialog" aria-modal="true" aria-labelledby="dialog-title" hidden><div class="dialog-top"><span class="overline">YOUR DRAFTS</span><button id="dialog-close" class="icon-button" type="button" aria-label="창 닫기">×</button></div><h2 id="dialog-title">현재 글을 삭제하시겠습니까?</h2><p id="dialog-description">임시저장하고 새 글을 시작하거나, 저장하지 않고 삭제하거나, 현재 글로 돌아갈 수 있어요.</p><div id="dialog-actions" class="dialog-actions"><button id="save-new" type="button" class="solid-button">임시저장하고 새 글</button><button id="delete-new" type="button" class="danger-button">삭제하고 새 글</button><button id="cancel-new" type="button" class="plain-button">그대로 돌아가기</button></div><div class="draft-section"><h3>임시저장된 글 <span id="draft-count">0</span></h3><div id="draft-list" class="draft-list"></div></div></div>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
